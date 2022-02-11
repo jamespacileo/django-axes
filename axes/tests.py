@@ -38,22 +38,16 @@ class AccessAttemptTest(TestCase):
         else:
             # Generate a wrong random username
             chars = string.ascii_uppercase + string.digits
-            username = ''.join(random.choice(chars) for x in range(10))
+            username = ''.join(random.choice(chars) for _ in range(10))
 
-        if is_valid_password:
-            password = self.VALID_PASSWORD
-        else:
-            password = 'invalid-password'
-
+        password = self.VALID_PASSWORD if is_valid_password else 'invalid-password'
         post_data = {
             'username': username,
             'password': password,
             'this_is_the_login_form': 1,
         }
         post_data.update(kwargs)
-        response = self.client.post(admin_login, post_data, HTTP_USER_AGENT=user_agent)
-
-        return response
+        return self.client.post(admin_login, post_data, HTTP_USER_AGENT=user_agent)
 
     def setUp(self):
         """Create a valid user for login
@@ -68,7 +62,7 @@ class AccessAttemptTest(TestCase):
         """Tests the login lock trying to login one more time
         than failure limit
         """
-        for i in range(1, FAILURE_LIMIT):  # test until one try before the limit
+        for _ in range(1, FAILURE_LIMIT):
             response = self._login()
             # Check if we are in the same login page
             self.assertContains(response, self.LOGIN_FORM_KEY)
@@ -82,14 +76,14 @@ class AccessAttemptTest(TestCase):
         """Tests the login lock trying to login a lot of times more
         than failure limit
         """
-        for i in range(1, FAILURE_LIMIT):
+        for _ in range(1, FAILURE_LIMIT):
             response = self._login()
             # Check if we are in the same login page
             self.assertContains(response, self.LOGIN_FORM_KEY)
 
         # So, we shouldn't have gotten a lock-out yet.
         # We should get a locked message each time we try again
-        for i in range(0, random.randrange(1, FAILURE_LIMIT)):
+        for _ in range(random.randrange(1, FAILURE_LIMIT)):
             response = self._login()
             self.assertContains(response, self.LOCKED_MESSAGE)
 
@@ -140,7 +134,7 @@ class AccessAttemptTest(TestCase):
         """Tests if can handle a long user agent with failure
         """
         long_user_agent = 'ie6' * 1024
-        for i in range(0, FAILURE_LIMIT + 1):
+        for _ in range(FAILURE_LIMIT + 1):
             response = self._login(user_agent=long_user_agent)
 
         self.assertContains(response, self.LOCKED_MESSAGE)
@@ -198,7 +192,7 @@ class AccessAttemptTest(TestCase):
         """Tests the login lock with a valid username and invalid password
         when AXES_LOCK_OUT_BY_COMBINATION_USER_AND_IP is True
         """
-        for i in range(1, FAILURE_LIMIT):  # test until one try before the limit
+        for _ in range(1, FAILURE_LIMIT):
             response = self._login(is_valid_username=True, is_valid_password=False)
             # Check if we are in the same login page
             self.assertContains(response, self.LOGIN_FORM_KEY)
@@ -211,6 +205,6 @@ class AccessAttemptTest(TestCase):
     def test_log_data_truncated(self):
         """Tests that query2str properly truncates data to the max_length (default 1024)
         """
-        extra_data = {string.ascii_letters * x: x for x in range(0, 1000)}  # An impossibly large post dict
+        extra_data = {string.ascii_letters * x: x for x in range(1000)}
         self._login(**extra_data)
         self.assertEquals(len(AccessAttempt.objects.latest('id').post_data), 1024)

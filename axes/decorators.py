@@ -59,7 +59,7 @@ def should_lock_out_by_combination_user_and_ip():
     return getattr(settings, 'AXES_LOCK_OUT_BY_COMBINATION_USER_AND_IP', False)
 
 COOLOFF_TIME = getattr(settings, 'AXES_COOLOFF_TIME', None)
-if (isinstance(COOLOFF_TIME, int) or isinstance(COOLOFF_TIME, float) ):
+if isinstance(COOLOFF_TIME, (int, float)):
     COOLOFF_TIME = timedelta(hours=COOLOFF_TIME)
 
 LOGGER = getattr(settings, 'AXES_LOGGER', 'axes.watch_login')
@@ -116,13 +116,11 @@ def get_ip_address_from_request(request):
                 ip_address = ip
                 break
     if not ip_address:
-        x_real_ip = request.META.get('HTTP_X_REAL_IP', '')
-        if x_real_ip:
+        if x_real_ip := request.META.get('HTTP_X_REAL_IP', ''):
             if not x_real_ip.startswith(PRIVATE_IPS_PREFIX) and is_valid_ip(x_real_ip):
                 ip_address = x_real_ip.strip()
     if not ip_address:
-        remote_addr = request.META.get('REMOTE_ADDR', '')
-        if remote_addr:
+        if remote_addr := request.META.get('REMOTE_ADDR', ''):
             if not remote_addr.startswith(PRIVATE_IPS_PREFIX) and is_valid_ip(remote_addr):
                 ip_address = remote_addr.strip()
             if remote_addr.startswith(PRIVATE_IPS_PREFIX) and is_valid_ip(remote_addr):
@@ -143,11 +141,10 @@ def get_ip(request):
                 raise Warning('Axes is configured for operation behind a reverse proxy but could not find '\
                     'an HTTP header value {0}. Check your proxy server settings '\
                     'to make sure this header value is being passed.'.format(REVERSE_PROXY_HEADER))
-            else:
-                ip = request.META.get('REMOTE_ADDR', '')
-                if not ip_in_whitelist(ip):
-                    raise Warning('Axes is configured for operation behind a reverse proxy and to allow some'\
-                        'IP addresses to have direct access. {0} is not on the white list'.format(ip))
+            ip = request.META.get('REMOTE_ADDR', '')
+            if not ip_in_whitelist(ip):
+                raise Warning('Axes is configured for operation behind a reverse proxy and to allow some'\
+                    'IP addresses to have direct access. {0} is not on the white list'.format(ip))
     return ip
 
 
@@ -168,17 +165,11 @@ def query2str(items, max_length=1024):
 
 
 def ip_in_whitelist(ip):
-    if IP_WHITELIST is not None:
-        return ip in IP_WHITELIST
-
-    return False
+    return ip in IP_WHITELIST if IP_WHITELIST is not None else False
 
 
 def ip_in_blacklist(ip):
-    if IP_BLACKLIST is not None:
-        return ip in IP_BLACKLIST
-
-    return False
+    return ip in IP_BLACKLIST if IP_BLACKLIST is not None else False
 
 
 def is_user_lockable(request):
@@ -344,8 +335,7 @@ def lockout_response(request):
         content = template.render(context, request)
         return HttpResponse(content)
 
-    LOCKOUT_URL = get_lockout_url()
-    if LOCKOUT_URL:
+    if LOCKOUT_URL := get_lockout_url():
         return HttpResponseRedirect(LOCKOUT_URL)
 
     if COOLOFF_TIME:
@@ -359,9 +349,8 @@ def lockout_response(request):
 def is_already_locked(request):
     ip = get_ip(request)
 
-    if ONLY_WHITELIST:
-        if not ip_in_whitelist(ip):
-            return True
+    if ONLY_WHITELIST and not ip_in_whitelist(ip):
+        return True
 
     if ip_in_blacklist(ip):
         return True
@@ -373,11 +362,10 @@ def is_already_locked(request):
 
     attempts = get_user_attempts(request)
 
-    for attempt in attempts:
-        if attempt.failures_since_start >= FAILURE_LIMIT and LOCK_OUT_AT_FAILURE:
-            return True
-
-    return False
+    return any(
+        attempt.failures_since_start >= FAILURE_LIMIT and LOCK_OUT_AT_FAILURE
+        for attempt in attempts
+    )
 
 
 def check_request(request, login_unsuccessful):
@@ -427,7 +415,7 @@ def check_request(request, login_unsuccessful):
                 attempt.failures_since_start = 0
                 attempt.save()
 
-        if trusted_record_exists is False:
+        if not trusted_record_exists:
             create_new_trusted_record(request)
 
     user_lockable = is_user_lockable(request)

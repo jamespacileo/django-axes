@@ -23,12 +23,10 @@ def log_user_lockout(sender, request, user, signal, *args, **kwargs):
         # Django < 1.5
         username = user.username
 
-    access_logs = AccessLog.objects.filter(
+    if access_logs := AccessLog.objects.filter(
         username=username,
         logout_time__isnull=True,
-    ).order_by('-attempt_time')
-
-    if access_logs:
+    ).order_by('-attempt_time'):
         access_log = access_logs[0]
         access_log.logout_time = now()
         access_log.save()
